@@ -1,0 +1,58 @@
+---
+slug: syntax-highlighting
+title: Syntax Highlighting Test
+created: 1/7/2022
+---
+
+# Testing Out SyntaxHighlighter with Prism
+
+<!-- excerpt -->
+
+This is cool. I would like to make sure it isn't bundling a zillion different languages!
+
+Otherwise it's all I need custom component-wise for now...
+
+<!-- end excerpt -->
+
+## JSX
+
+```jsx
+<Hello theme="dark" bg="aliceblue" fg="violet">
+    {name ? `there, ${name}` : 'world'}
+</Hello>
+```
+
+## Typescript
+
+```ts
+const hello = (name: string): string => {
+    return `Hello ${name || }`
+}
+```
+
+## Go
+
+```go
+package main
+
+import 'fmt'
+
+func main() {
+    fmt.Println("Hello world")
+}
+```
+
+## Python
+
+```python
+@Decorate("the main function")
+def main()
+    print "Hiya!"
+```
+
+## Bash
+
+```bash
+VAR="foo"
+>&2 echo ${VAR:+bar}
+```

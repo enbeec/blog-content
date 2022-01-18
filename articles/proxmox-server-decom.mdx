@@ -1,0 +1,173 @@
+---
+slug: proxmox-server-decom
+title: Decomissioning My Proxmox Server
+isPublished: true
+created: 1/15/2022
+---
+
+<Headline>Decomissioning My Proxmox Server</Headline>
+
+<Section>
+
+## Intro
+
+<!-- excerpt -->
+
+I really enjoyed using Proxmox, but it doesn't fit my needs anymore. It was an amazing tool for quickly trying things in clean environments, which is a huge boost to my confidence in understanding. It's like the learning version of separating your unit tests from your integration tests. Knowing how things behave in isolation means that edge-case interactions drive understanding rather than impeding it.
+
+<!-- end excerpt -->
+
+I'll be doing FreeBSD on the bare metal, which means no GPU-accelerated VMs. This is okay because I'm no longer co-located with the machine. What I will be passing through to VMs are HBAs and network cards.
+
+The first step is to have my user account in a jail to force myself to finally grapple with "proper" privilage separation. I may try subjails with that, but a flat arrangement of sibling jails would be fine to start considering I'm rarely going to be logged in as myself on the console directly.
+
+The final target is roughly this:
+- Linux VMs created from preconfigured snapshots
+    - there will always be one dedicated Docker VM running
+- a FreeBSD NAS VM with lots of RAM, a network interface and the storage array HBA all to itself
+- robust jail management on the host using Bastille
+
+I hope that this setup is achievable without too much effort. It sounds ambitious but I've done about 70% of these things in isolation. I do have an escape hatch in that once TrueNAS SCALE is out for a little bit that would be a natural next step. I try to re-evaluate how this (my fanciest hardware) is allocated once a year or so to make sure that it's not just collecting dust. I'm not sure how long I'll last rolling all this myself but if any OS can make it possible it's FreeBSD! The core system has a better combination of feature-completeness, documentation and stability than anything in Linux (for me at least). Everything I've described so far is part of the base system except Bastille *(which itself only depends on the base system*). This should be fun!
+
+### Outline
+- inventory of hardware, VMs, containers and host services
+    *you don't know what you've got til it's gone (or you've done a **full inventory**)*
+
+    - a list of things to preserve
+
+    - a list of things that will be reclaimed
+
+- the new hardware configuration steps
+
+    **1)** <u>host-only hardware</u>
+
+    *not fun to accidentally install to a data disk because you left it plugged in*
+
+    **2)** <u>add extra disks</u>
+
+    *I'll be running all the VMs off pooled-but-dedicated storage*
+
+    **3)** <u>add storage array</u>
+
+    *I may want to split off to a dedicated NAS so eventually this may be set this up in bhyve with the HBA passed through.*
+
+I won't go into the new OS setup because that's for another article.
+
+</Section>
+
+<Section>
+
+## Inventory
+
+### Hardware
+
+#### Base
+
+- 12 CPU cores (24 threads)
+- GB (8x8) DDR4 2400MHz
+- 32GB USB3.0 boot disk for Proxmox
+- mirrored ~128GB SATA SSDs for the root zpool
+
+*Sizes listed here are the "optimistic" sizes that manufacturers put on the packaging. It is not a mistake that they appear different below.*
+
+#### All Disks/Pools/Volumes
+
+`bigbeans` is the ZFS pool of four Hitachi 8TB SATA drives that was migrated from a previous system. It will hold backup data during the decommission and then be detached during the upgrade process.
+
+`rpool` is the Proxmox root pool. It also includes some zvols most likely related to long-running conatiners. I will be backing up important data from the containers. `zd0` has a partition labelled `boot-pool` and a 512K boot partition. I **think** this is TrueNAS's root filesystem as I did not have `tmir` installed during the initial setup of TrueNAS. I'll back that up whole and then delete it when/if the FreeBSD NAS VM is working. Once everything is backed up, I'll wipe these for reallocation.
+
+`tmir` is a <u>mir</u>ror of single <u>t</u>erabyte NVME drives that I keep VMs on. I will be backing up these zvols to `bigbeans` and re-creating the pool in FreeBSD.
+
+`speedbucket` is a single 500GB SATA SSD formatted to NTFS that I use for music production.
+
+`/dev/sdi` is an entire disk being passed through to a Windows VM.
+
+`PVE` is the Proxmox installer for the current version I'm running. I leave it attached so I can rescue the server remotely via my motherboard's BMI.
+
+Raw output of  `zfs list -d 0`
+
+        NAME       USED  AVAIL     REFER  MOUNTPOINT
+        bigbeans  1.10T  12.9T       88K  /bigbeans
+        rpool     18.3G  81.5G      104K  /rpool
+        tmir       145G   754G       96K  /tmir
+
+Organized output of `lsblk -o name,label,size,uuid` for more info.
+
+        NAME        LABEL             SIZE UUID
+        ## PROXMOX INSTALLER/RECOVERY USB ======================= ##
+        sdd         PVE              28.7G 2020-05-10-19-27-04-00
+        ├─sdd1      PVE               242K 2020-05-10-19-27-04-00
+        ├─sdd2      PVE               2.8M 6DC7-2009
+        ├─sdd3      PVE             859.2M 2020-05-10-19-27-04-00
+        └─sdd4      PVE               300K 2020-05-10-19-27-04-00
+        ## PROXMOX BOOT + ROOT ================================== ##
+        sdf                         111.8G
+        ├─sdf1                       1007K
+        ├─sdf2                        512M 7FF7-F951
+        └─sdf3      rpool           103.5G 5912527667627244929
+        sdg                         119.2G
+        ├─sdg1                       1007K
+        ├─sdg2                        512M 7FF8-3665
+        └─sdg3      rpool           103.5G 5912527667627244929
+        ## A WINDOWS DISK ======================================= ##
+        sdi                         223.6G
+        ├─sdi1      System Reserved   350M AAB4791DB478ED67
+        └─sdi2                      222.8G 3C4E5AE64E5A988A
+        ## TRUENAS ROOT ========================================= ##
+        zd0                            40G
+        ├─zd0p1                       512K
+        └─zd0p2     boot-pool          40G 2774858753677472026
+        ## VM STORAGE =========================================== ##
+        zd16                           40G
+        zd32                         16.5G
+        zd48                           42G
+        ## ZFS SATA PARTITIONS ================================== ##
+        └─sda1      bigbeans          7.3T 17503216911300335228
+        └─sdb1      bigbeans          7.3T 17503216911300335228
+        └─sdc1      bigbeans          7.3T 17503216911300335228
+        └─sde1      bigbeans          7.3T 17503216911300335228
+        └─sdh1      speedbucket     465.8G 5496A8FD96A8E12A
+        ## ZFS NVME DISKS ======================================= ##
+        nvme1n1                     931.5G
+        ├─nvme1n1p1 tmir            931.5G 7935199941371665118
+        └─nvme1n1p9                     8M
+        nvme0n1                     931.5G
+        ├─nvme0n1p1 tmir            931.5G 7935199941371665118
+        └─nvme0n1p9                     8M
+
+### Containers
+
+Almost all of the containers had already been cleaned out when I knew I wouldn't have much time to tend them during bootcamp so I found very little to back up.
+
+### VMs
+
+I don't have a Windows VM defined so I think that Windows disk is a (very precious) spinning rust SATA drive that I will **definately** be unplugging.
+
+The other two are `oob` (OpenBSD) and `truenas`. I'll be keeping `truenas` and I've moved it's zvol `vm-100-disk-0` to `bigbeans`.
+
+With that, `tmir` is clear for wiping.
+
+</Section>
+
+<Section>
+
+## New Hardware Setup
+
+I've stripped the system down in prep for the new OS.
+
+- bigbeans contains the truenas zvol (just in case)
+- bigbeans has been exported and disconnected physically
+- tmir has been cleared, will remain attached
+- the host system disks have been cleared, will remain attached
+- all other SATA disks are disconnected physically
+- the PCIe HBA and it's storage array have been disconnected entirely
+
+### Planning for Rescue
+
+In order to set up the new OS, I had to use the console boot menu and select the installer. The reason for this is that I keep the boot disks (which are remaining the same -- a mirror with a copy of the bootloader on both) just above the USB drive containing the installer in the boot order. I also leave the USB drive connected at all times. In the case of an upgrade, a new one can be written from the running system.
+
+The reason for this is that if both root disks become unbootable I can use the remote console feature (which does not allow interaction pre-boot to change the boot device\*) to rescue the system by falling through to the USB disk. It's hardly perfect, but it works for now.
+
+*\*technically you can provide an iso over the network but it's more of a TFTP/NetBoot situation that I don't have time to learn just yet*
+
+</Section>

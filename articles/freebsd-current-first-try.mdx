@@ -1,0 +1,135 @@
+---
+slug: freebsd-current-first-try
+title: I want to try FreeBSD Current (the right way)
+created: 8/15/2021
+---
+
+<Headline>I want to try FreeBSD Current</Headline>
+
+<Section>
+
+## Intro
+
+I am not ready yet, but VMs are cool `8)`. I have a full time full stack web dev course I'm about a month and a half from completing and my Proxmox install got an extra 64G of RAM a litle over a year ago, eliminating my need to manage RAM allocation at all -- true luxury from a bygone era of cheap component prices. With this new flexibility I've been playing with BSDs and networking and I decided it'd be fun to have a FreeBSD current in all the little slivers of time I have between class tasks. I spend all day poking around in the shell and taking notes, then try stuff out and document my progress.
+
+
+FreeBSD just moved to `git` from `svn` for VCS <!-- <<== TODO link here --> and I'm new to collaborative `git` workflow after a few years of self taught usage (big shout out to NSS <!-- <<== TODO link here --> for their amazing work teaching collaborative development practices). Going straight for Current is considered (at least according to the Handbook <!-- <<== TODO link here -->) to be a little risky as a less-than-seasoned FreeBSD user so this is an adventure for me\*. 
+
+We pick up our story with `freebee2` -- `freebee` the first was cruelly cast aside after I borked `/etc/passwd` with some careless `mergemaster` antics. `freebee2` is built different, though! As soon as I have a clean install I'm going to take a snapshot so I won't have to run the installer again. I'll keep updating the hostname as I brick the system though.
+
+\* *I have FreeBSD on a Thinkpad with a lovely i3 config I really need to post about some time. My Spotify setup would be a post just on it's own. I also had a 12.1 server for around 9 months but I relied on binary packages and as few ports as humanly possible.*
+
+</Section>
+
+<Section>
+
+## The Plan
+
+### ~~Boot up a FreeBSD `.iso`~~ Open up the Handbook
+
+**§24.4.1** Using FreeBSD-Current
+
+> FreeBSD-CURRENT is the "bleeding edge" of FreeBSD development and FreeBSD-CURRENT users are expected to have a high degree of technical skill.
+
+> To track FreeBSD-CURRENT:
+>
+> 1. Join the FreeBSD-CURRENT mailing list and the Commit messages for the main branch of the src repository lists. This is essential in order to see the comments that people are making about the current state of the system and to receive important bulletins about the current state of FreeBSD-CURRENT.
+>    The Commit messages for the main branch of the src repository list records the commit log entry for each change as it is made, along with any pertinent information on possible side effects.
+<!-- >    To join these lists, go to FreeBSD list server, click on the list to subscribe to, and follow the instructions. In order to track changes to the whole source tree, not just the changes to FreeBSD-CURRENT, subscribe to the Commit messages for all branches of the src repository. -->
+
+> 2. Synchronize with the FreeBSD-CURRENT sources. Typically, git is used to check out the -CURRENT code from the main branch of the FreeBSD Git repository (see “Using Git” <!--- <<== TODO link here -->for details).
+> 3. Due to the size of the repository, some users choose to only synchronize the sections of source that interest them or which they are contributing patches to. However, users that plan to compile the operating system from source must download all of FreeBSD-CURRENT, not just selected portions.
+>    Before compiling FreeBSD-CURRENT, read /usr/src/Makefile very carefully and follow the instructions in Updating FreeBSD from Source. Read the FreeBSD-CURRENT mailing list and /usr/src/UPDATING to stay up-to-date on other bootstrapping procedures that sometimes become necessary on the road to the next release.
+> 4. Be active! FreeBSD-CURRENT users are encouraged to submit their suggestions for enhancements or bug fixes. Suggestions with accompanying code are always welcome.
+
+**§24.5.** Updating FreeBSD from Source
+
+This is a huge and MASSIVELY helpful section. Just open it in a tab and go to town.
+
+**§24.5.2.** Preparing for a Source Update 
+
+> Read `/usr/src/UPDATING`. Any manual steps that must be performed before or after an update are described in this file.
+
+That's the whole section. You may have seen it mentioned up above in #3, too. I think this may be my first contribution to the FreeBSD project -- I would love for there to be some sort of warning here. Let me show you what I mean...
+
+#### A Detour -- `/usr/src/UPDATING` and **§A.3.** Using Git
+
+**§A.3.4.** big table of URLs
+
+> Read-only src repo via HTTPS | `https://git.freebsd.org/src.git`
+
+`git clone --depth 1 https://git.freebsd.org/src.git freebsd`
+
+`wc -l freebsd/UPDATING` => `2565 freebsd/UPDATING`
+
+*pardon me?*
+
+**§24.5.2.** Preparing for a Source Update 
+
+> Read `/usr/src/UPDATING`. Any manual steps that must be performed before or after an update are described in this file.
+
+++
+
+> The file is rather long and the basics are contained close to the end. Try starting from the bottom and looking for 'COMMON ITEMS:'. From there you can skim upwards through history until things start becoming familiar and/or useful to your specific information. 
+
+----
+
+Below the heading `COMMON ITEMS` in `src/UPDATING`, you'll find many section headers about ZFS, kernels, upgrading and cross installing. Mainly of interest to this article are the following sections, from which I'll extract some highlights:
+
+- `General Notes`
+	- build problems resulting from careless source upgrading are not always immediate or noticeable
+	- update your existing install first
+	- if your existing install is really old there are more steps 
+	- the log portion of `src/UPDATING` is append only -- reference the past rather than overwriting it
+
+- `To upgrade in-place from stable to current`
+	- here is the basic step list (highly abridged, please look at the file)
+	```
+	make buildworld
+	make buildkernel
+	make installkernel
+	reboot
+	mergemaster
+	make installworld
+	mergemaster
+	(make delete-old)
+	```
+
+	- once you crack open the file itself, you will find that the list is annotated with subsections
+	- I might print and frame this section -- it is **that** helpful.
+
+### Outline the Plan
+
+1. Install and set up latest Stable in a fresh VM
+	- plenty of space, RAM and CPU since we will be building quite a bit
+	- I originally set up a user for myself but I think I might do some of the setup as root first
+	- install `ccache` and `git`
+	- clone into `/usr/src`
+	- `make buildworld` and `make buildkernel`
+		- Why?
+			1. I will likely be using this snapshot for future source tinkering so seeding `ccache` is a good idea
+			2. The current task at hand always starts with those two steps so it's good to knock them out early
+2. Take a snapshot so it's easy to start again
+3. Continue on with the upgrade following the information listen above
+
+### Never Stop Reading
+
+Although the guide will continue from here, please note that in the background there are tabs and tabs of other documentation open. All I can do is gather the highlights and form a simple path -- I can't recreate the scenery you'll see as you walk down it.
+
+</Section>
+
+<Section>
+
+## Of Mice and Men
+
+Let's see what goes wrong and learn from it, shall we?
+
+### VM Provisioning
+
+</Section>
+
+<Section>
+
+## Lessons Learned
+
+</Section>

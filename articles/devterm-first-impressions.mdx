@@ -1,0 +1,94 @@
+---
+slug: devterm-first-impressions
+title: First Impressions of the Clockwork Pi DevTerm
+created: 1/14/2022
+---
+
+# First Impressions of the Clockwork Pi DevTerm
+
+## Build Anti-Guide
+
+I've found a lot of great videos and content about putting the unit together online and my experience didn't differ too much so I'll be brief:
+
+- building the DevTerm is **fun**
+- easy, diagram-first guide 
+    - no need to translate if your diagrams are good!
+- you will indeed need a small phillips screwdriver to lock the SOC board into place
+    - I'll take needing the most common tinkerer's tool over intermittent instability any day of the week
+- plan to spend about half an hour to an hour if you're comfortable putting things together
+    - take the time to dry-fit the screen -- it'l help you troubleshoot if you have problems later on
+- when you're ready to test it out, you can quickly find fresh images [on the forum](https://forum.clockworkpi.com/c/devterm/firmware)
+
+## First Run
+
+I'm super impressed by the quality of the product overall (more on that later) but the default OS images need a little love. I plan to contribute anything of signifigance upstream but would also be down to collaborate on spinning a more polished community image that integrates quality of life fixes withuot burdening the devs too much. My biggest impression is that this image comprises the dev team's suite for using the DevTerm and that makes me **love** the project. I want to be super clear that this is a sign, to me, that effort is being spent in the right places. We don't have a fancy theme but the printer just worked for me with no fuss. Super cool, especially in a world of marketing hype.
+
+### What I've done so far
+
+I got this thing in the middle of a crazy work week but still managed to use it a bit. I read some manpages on it during the daytime just because I couldn't keep my hands off of it and then dug in at nighttime.
+
+- `systemctl set-default multi-user.target` to disable the GUI by default.
+    - using `startx` is my preference on battery-operated or low-power systems
+    - using `tmux` is a godsend here because you can work in a virtual session but also detach and start up the GUI, then reattach
+    - the settings menus are very complete and being able to look at the printer's `lp` configuration graphically is handy but not "always-on"
+- played with some different console fonts (I'm quite fond of [spleen](https://github.com/fcambus/spleen)) and at first thought `tmux` was struggling to clear the screen with them but...
+    - this screen is really gorgeous -- can't wait to play some games on it!
+- it turns out `tmux` isn't clearing properly even by default...
+    - I need to save config and 
+    - I know the display drivers need [a bit of love](https://forum.clockworkpi.com/t/help-getting-started-with-devterm/7392/8) but I'm already learning enough at work without finally diving into drivers in my spare time so I hope that gets looked at soon
+- set up some aliases for `devterm-a04-gearbox`
+    - and just like that you have power management that puts every other "portable" x86 solution to shame
+- 
+
+### Future Plans
+
+- try out the trackball/keyboard firmware fix in the repos
+    - it's got glowing reviews and I'm not too fond of how the trackball behaves normally
+    - being a console-first user I'm a little worried by the reports on the forum recently that they've been getting weird keyboard behavior with the upgrade -- I use the keyboard more than the trackball
+    - bare minumum I'll probably give it a spin just to provide some testing feedback
+- i3wm
+    - I'll just use the metapackage from the Ubuntu repos (it's there on ARM!) rather than going out of my way for i3-gaps
+        - I don't want to complicate setup as I plan to tinker with and maybe break this install at some point
+        - the display is dual VGA -- not exactly a ton of real estate for pretty gaps
+    - I'm going to remove the DM entirely (GDM and LightDM) since I tend to open the GUI conditionally
+    - Besides the usual i3 config suspects here are a few DevTerm specifics I've got cooking up:
+        - a bar entry for the current "gear"
+- a logging service
+    - I put all my clients on a little VPN and have been wanting to try a network logger for a while
+    - to start I'll just find a way to filter something like `syslog-ng` and worry about writing a server implementation for if I have the time
+    - I just want to have a thing on my network that can take logs and, if they match a rule, make them print out in meatspace
+
+## Observations
+
+### The Usual Suspects 
+
+There are a few hardware things that seem fixable but low priority for such a new device. Not dealbreakers but I'll be checking in on them for sure and doing my best to contribute to testing fixes.
+
+- WiFi's a bit flaky (maybe just when "downshifted" to gear 1 or 2)
+- screen overscan issue mentioned above
+- tmux terminal control code weirdness mentioned above
+    - this one might be on me -- I need to set the machine up fresh after all my tinkering to find out
+    - normally I'd chalk this up to tmux and scour StackOverflow and the like, but it *could* be screen related so in it goes
+- the speakers were dumping a lot of noise while charging
+    - this is very common in small electronics and the wiring free design of the speakers probably isn't helping given the proximity of the charging input and speaker contacts on the board
+    - I need to show the schematics to an audio guy I know who works on circuits a lot. He might have some ideas.
+    - I don't need audio badly right now so I just popped it open and put little pieces of paper over the contacts
+        - one of them might shifted or the charging circuit may be **really** noisy because I'm still getting charging noise sometimes
+
+### I/O
+
+The keyboard is impressive, given the constraints, but I'm not a huge fan. Needing to feel for keys with medium/largeish fingers is rough when there's no tactile response so I have to take it pretty slow when typing. It's also just barely too wide for me to type "phone style" like I can on the [GPD Micro](https://gpd.hk/gpdmicropc) but that's hardly a fair comparison. For a first go at this kind of thing? 8/10. Seriously. There's a defunct PocketCHIP (I'd link but their website was yanked **while mine was being shipped to me** when they went dark) staring at me across the room and I'm so thankful to not be struggling with it's "minimalist" keyboard implementation. That's a fairer comparison and the DevTerm crushes the competition.
+
+The screen, as I mentioned, is gorgeous. The drivers, as I mentioned, are functional! But also *\*pokes kernel hackers with a stick\** do something...
+
+Love the printer. Only my "sticker-back" paper has arrived and it's been a little finnicky. I can already tell that normal thermal paper will work better but I had a lot of fun just redirecting text and control codes to the serial file and watching the printer go "brrrrr".
+
+### Look and Feel
+
+I'm seriously in love with the look. I like Teenage Engineering's product design quite a bit and I get the same kind of beautifully pragmatic vibe here, albeit at a much lower price point. All the right corners seem to be cut -- the internals are thoughtful and inviting. I ~~want to see~~ need to look harder for physical specs on the expansion port because I'm definately interested in playing with that.
+
+<!-- excerpt -->
+
+The DevTerm is gorgeous and well designed. As a kit, it's a blast and nothing else out there can touch the built-in printer on the "cool factor" while being as approachable for beginners. There's plenty of polish left to be done but for the work of a handful of day-job-havers it's blowing me away. Expect more updates -- I plan to keep this on my desk for a long time.
+
+<!-- end excerpt -->

@@ -1,0 +1,64 @@
+---
+slug: partkeepr-setup
+title: Settin' Up Partkeepr
+created: 09/06/2021
+---
+
+# Settin up Partkeepr
+
+## What is Partkeepr?
+
+It's a PHP web app for managing an inventory of electronic parts.
+
+## Setup
+
+1) A container (I set one up on my primary Proxmox node)
+	- hostname: **keeper**
+		- Ubuntu 20.04
+			- [Debian/Ubuntu have an awesome Apache setup out of the box](https://arstechnica.com/information-technology/2020/05/apache-101-0-wordpress-in-15-minutes/)
+		- 6Gb root disk (database will be external)
+		- 4Gb RAM, 2 CPUs, 1Gb swap
+
+2) Dependencies and Install
+	- **this guide is intended for use on a clean Ubuntu 20.04 install** you have been warned
+	- first, update the system
+		- `apt update` and `apt upgrade`
+	- `php7.4` is not supported yet -- but `php7.1` is!
+		- Add the ppa for supported PHP versions: `add-apt-repository ppa:ondrej/php`
+			- if you can't find the command, install `software-properties-common`
+		- While you're at it, follow the instructions and `add-apt-repository ppa:ondrej/apache2`
+	- now you can: `apt install apache2 php7.1 php7.1-{curl,ldap,bcmath,gd,dom}`
+	- follow these instructions to install `composer` -> [](https://getcomposer.org/download/)
+	- time to install `partkeepr`
+		- `git clone https://github.com/partkeepr/PartKeepr`
+		- follow the [instructions from the repo](https://github.com/partkeepr/PartKeepr/blob/master/documentation/Installation.md)
+			- a note about running as root: for simplicity bypass the warnings about running `composer` as the superuser. We are running in a container with this single responsiblity so many risks are already mitigated. **However**, for a proper "production" system, an admin/system user with **only the privileges required to run PartKeeper** is a necessity. 
+
+3) Configure Apache
+
+I adapted this from the example configuration in the docs.
+```apache
+<VirtualHost *:80>
+	ServerName partkeepr.lb-zone.xyz
+	DocumentRoot /var/www/PartKeepr/web/
+	AcceptPathInfo on
+
+	ErrorDocument 403 "<h1>PartKeepr is down. Check back in a few minutes or email Val.</h1>"
+
+	<Directory /var/www/PartKeepr/web/>
+		Require all granted
+		AllowOverride All
+	</Directory>
+
+	## Logging
+	ErrorLog "/var/log/apache2/partkeepr.lb-zone.xyz_error.log"
+	ServerSignature Off
+	CustomLog "/var/log/apache2/partkeepr.lb-zone.xyz_access.log" combined
+</VirtualHost>
+```
+
+Install that to `/etc/apache2/sites-available/partkeepr.lb-zone.xyz.conf` and run `a2ensite partkeepr.lb-zone.xyz`
+
+I'll also need a DNS record for partkeepr.lb-zone.xyz. With this basic configuration, this will point to the internal IP of `keeper`. If I wanted to open this up I would point that to the public IP of my reverse proxy server handling `keeper`.
+
+For now, I just chucked an entry in `/etc/hosts` on my workstation while I'm gettin things configured.
